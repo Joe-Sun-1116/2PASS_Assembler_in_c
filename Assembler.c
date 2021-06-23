@@ -1,19 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+int PASS1();
+//int PASS2();
 
 int main(){
-	int PASS1();
-	int PASS2();
+	PASS1();
+	//PASS2();
 	return 0;
 }
 
 int PASS1(){
-	
 	FILE *fSource,*fOpcode,*fSymtab,*fIntrm;
 	char buffer[64],label[20],mnemonic[8],operand[12];
+	int locctr = 0x0,start = 0x0;
+	int count = 0;
 	
-	
-	/****************以下進行檔案存取****************/
+	/*
+	*		以下進行檔案讀取 
+	*/
 	
 	fSource = fopen("source.txt", "r");
 	if(fSource == NULL){
@@ -22,8 +28,8 @@ int PASS1(){
 	}
 
 	fOpcode = fopen("opcode.txt", "r");
-	if(fSource == NULL){
-		printf("opcode file open fail!");
+	if(fOpcode == NULL){
+		printf("Opcode file open fail!");
 		return 0;
 	}
 
@@ -31,21 +37,31 @@ int PASS1(){
 	
 	fIntrm = fopen("Intermediate_file.txt","w");
 	
-	/****************檔案存取完畢****************/
+	/*
+	*		檔案存取完畢
+	*/
 
-	fgets(buffer,64,fProg);
+	fgets(buffer,64,fSource);
 	sscanf(buffer,"%s %s %s",label,mnemonic,operand);
 	
-	if(strcmp(mnemonic), "START" == 0){
-		
+	if(strcmp(mnemonic,"START") == 0){
+		locctr = atoi(operand); // operand 的值設為程式開始的位址
+		while(locctr > 0){
+			
+			/*
+			*		while 迴圈中將位址轉為16進制 
+			*/
+			
+			start += (locctr%10) * pow(16,count);
+			locctr /= 10;
+			count++;
+		} 
+		locctr = start;
+		fprintf(fIntrm,"%x\t%s\t%s\t%s\n",start,label,mnemonic,operand);
+	}
+	
+	while(!feof(fSource)){
 		
 	}
 	
-
-
-
-
-
-
-
 }
