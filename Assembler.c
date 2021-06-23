@@ -15,7 +15,7 @@ int PASS1(){
 	FILE *fSource,*fOpcode,*fSymtab,*fIntrm;
 	char buffer[64],label[20],mnemonic[8],operand[12];
 	int locctr = 0x0,start = 0x0;
-	int count = 0;
+	int count = 0,ret = 0;
 	
 	/*
 	*		以下進行檔案讀取 
@@ -61,7 +61,23 @@ int PASS1(){
 	}
 	
 	while(!feof(fSource)){
+		fgets(buffer,64,fSource);
+		ret = sscanf(buffer,"%s%s%s",label,mnemonic,operand); // 判斷指令有幾個 
 		
+		if(label[0] != '.' && label[0] != ';'){ // 先確認指令是否為註解 
+			if(ret == 1){
+				strcpy(mnemonic,label);
+				fprintf(fIntrm,"%04x\t\t%s\n",locctr,mnemonic);
+			}
+			else if(ret == 2){
+				strcpy(operand,mnemonic);
+				strcpy(mnemonic,label);
+				fprintf(fIntrm,"%x\t\t%s\t%s\n",locctr,mnemonic,operand);
+			}
+			else if(ret == 3){
+				
+			}
+		}
 	}
 	
 }
