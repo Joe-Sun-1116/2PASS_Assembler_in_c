@@ -13,7 +13,7 @@ int main(){
 }
 
 int PASS1(){
-	FILE *fSource,*fOpcode,*fSymtab,*fIntrm;
+	FILE *fSource,*fOpcode,*fSymtab,*fIntrm; 
 	char buffer[64],label[20],mnemonic[8],operand[12],symbol[12],mnem[8],op[2];
 	int locctr = 0X0,start = 0X0,address = 0X0;
 	int count = 0,ret = 0,flag = 0,len = 0;
@@ -42,10 +42,10 @@ int PASS1(){
 	*		檔案存取完畢
 	*/
 
-	fgets(buffer,64,fSource);
-	sscanf(buffer,"%s %s %s",label,mnemonic,operand);
+	fgets(buffer,64,fSource); // 先讀進 buffer  
+	sscanf(buffer,"%s %s %s",label,mnemonic,operand); // 再將 buffer 內的指令分別剖析成 label, mnemonic, operand 
 	
-	if(strcmp(mnemonic,"START") == 0){
+	if(strcmp(mnemonic,"START") == 0){ // 若第一行為 START 
 		locctr = atoi(operand); // operand 的值設為程式開始的位址
 		while(locctr > 0){
 			
@@ -61,24 +61,29 @@ int PASS1(){
 		fprintf(fIntrm,"%X\t%s\t%s\t%s\n",start,label,mnemonic,operand);
 	}
 	
-	while(!feof(fSource)){
+	while(!feof(fSource)){  // 開始進行讀檔 
 		
-		fgets(buffer,64,fSource);
-		ret = sscanf(buffer,"%s%s%s",label,mnemonic,operand); // 判斷指令有幾個 
+		fgets(buffer,64,fSource); // 先讀進 buffer
+		ret = sscanf(buffer,"%s%s%s",label,mnemonic,operand); // 再將 buffer 內的指令分別剖析成 label, mnemonic, operand...ret用來判斷指令有幾個 
 		
 		if(label[0] != '.' && label[0] != ';'){ // 先確認指令是否為註解 
-			if(ret == 1){
+			if(ret == 1){ // 若只有一個為 mnemonic 
 				strcpy(mnemonic,label);
 				fprintf(fIntrm,"%04X\t\t%s\n",locctr,mnemonic);
 			}
-			else if(ret == 2){
+			else if(ret == 2){ // 若有兩個為 mnemonic 及 operand 
 				strcpy(operand,mnemonic);
 				strcpy(mnemonic,label);
 				fprintf(fIntrm,"%X\t\t%s\t%s\n",locctr,mnemonic,operand);
 			}
 			else if(ret == 3){ // 代表有 symbol 在 Label field  
 				rewind(fSymtab); // 檔案指標回到起始 
-				while(!feof(fSymtab)){					
+				while(!feof(fSymtab)){
+					
+					/*
+					*	要確認 symbol 沒有重複 
+					*/		
+							
 					flag = 0;
 					fscanf(fSymtab,"%s%X",symbol,&address);
 					if(strcmp(label,symbol) == 0){
@@ -89,13 +94,12 @@ int PASS1(){
 				}
 				
 				if(flag == 0){
-					
 					fprintf(fSymtab,"%s\t%X\n",label,locctr);
 					fprintf(fIntrm,"%X\t%s\t%s\t%s\n",locctr,label,mnemonic,operand);
 				}
 			}
 			
-			rewind(fOpcode);
+			rewind(fOpcode); // 開始搜尋 OPtable 
 			while(!feof(fOpcode)){
 				
 				fscanf(fOpcode,"%s%s",mnem,op);
