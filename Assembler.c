@@ -183,7 +183,7 @@ int PASS1(){
 int PASS2(){
 	
 	int locctr = 0X0, start = 0X0,count = 0X0,record_len = 0X0,sa = 0X0,address = 0X0,target = 0X0,ascii = 0X0,temp1 = 0X0;
-	int ret = 0,op_status = 0,j = 0,k = 0;
+	int ret = 0,op_status = 0,j = 0,k = 0,flag = 0;;
 	long int aseek,bseek;
 	char label[12], mnemonic[8], operand[12],buffer[64],mnem[8],op[2],opcode[2],symbol[12],cons[8];
 	FILE *fIntrm, *fSymtab, *fOptab, *fsource_obj, *fobj;
@@ -219,16 +219,20 @@ int PASS2(){
 	*/
 	
 	fscanf(fIntrm,"%X%s%s%s",&locctr,label,mnemonic,operand);
+	
 	if(strcmp(mnemonic,"START") == 0){
 		start = (int)strtol(operand,NULL,16);
 		fprintf(fobj,"H%6s%06X%06X",label,start,program_length);
-		fprintf(fobj,"\nT%06X00",start,program_length);
+		fprintf(fobj,"\nT%06X00",start);
+		
 		bseek = ftell(fobj);
 		
 	}
 	fgets(buffer,64,fIntrm); // 先將空字串讀進 
+	
 	while(!feof(fIntrm)){
-		fgets(buffer,64,fIntrm);
+		
+		fgets(buffer,64,fIntrm); 
 		
 		ret = sscanf(buffer,"%X%s%s%s",&locctr,label,mnemonic,operand);
 		
@@ -249,19 +253,28 @@ int PASS2(){
 		*	欄位調整完畢 
 		*/ 
 		
-		if(count >= 0X3C || strcmp(mnemonic,"RESB") == 0 || strcmp(mnemonic,"RESW") == 0 || strcmp(mnemonic,"END") == 0){
-			aseek = ftell(fobj);
+		if((flag == 1) ){
+			if((strcmp(mnemonic,"RESB") != 0) && (strcmp(mnemonic,"RESW") != 0) && (strcmp(mnemonic,"END") != 0)){
+				//printf("%X\n",locctr); 
+				fprintf(fobj,"\nT%06X00",locctr);
+				flag = 0;
+			}
+		} 
+		 
+			
+		if(count >= 0X36 || strcmp(mnemonic,"RESB") == 0 || strcmp(mnemonic,"RESW") == 0 || strcmp(mnemonic,"END") == 0){
+			
+			flag = 1;
+			/*aseek = ftell(fobj);
 			fseek(fobj,-(aseek-bseek)-2L,1);
 			record_len = count/0X2;
 			fprintf(fobj,"%02X",record_len);
-			fseek(fobj,0L,2);
+			fseek(fobj,0L,2);*/
+			
 			if(strcmp(mnemonic,"END") == 0){
 				break;
 			}
-			sa = locctr;
-			if(strcmp(mnemonic,"RESW") != 0){
-				fprintf(fobj,"\nT%06X00",sa);
-			}
+			
 			bseek = ftell(fobj);
 			count = 0X0;
 		}
@@ -293,8 +306,7 @@ int PASS2(){
 				}
 			}
 			fprintf(fobj,"%2s%04X",opcode,target);
-			
-			fprintf(fsource_obj,"%X\t%s\t%s\t%s\t%2s%04X\n",locctr,label,mnemonic,operand,opcode,target);
+			fprintf(fsource_obj,"%X\t\t%s\t%s,X\t\t%2s%04X\n",locctr,mnemonic,operand,opcode,target);
 			count = count + 0X6;
 			continue;
 		}
@@ -309,12 +321,21 @@ int PASS2(){
 				} 
 			}
 			fprintf(fobj,"%02s%04X",op,target);
+			if(ret == 4){
+				fprintf(fsource_obj,"%X\t%s\t%s\t%s\t\t%2s%04X\n",locctr,label,mnemonic,operand,opcode,target);
+			}
+			else{
+				fprintf(fsource_obj,"%X\t\t%s\t%s\t\t%2s%04X\n",locctr,mnemonic,operand,opcode,target);
+			}
+			
+			//printf("%2s%04X\n",opcode,target);
 			count = count + 0X6;
 			continue;
 		}
 		
 		else if(op_status == 1 && strcmp(mnemonic,"RSUB") == 0){
 			fprintf(fobj,"%s0000",opcode);
+			fprintf(fsource_obj,"%X\t\t%s\t\t\t%2s0000\n",locctr,mnemonic,opcode);
 			count = count + 0X6;
 			continue;
 		}
@@ -328,6 +349,8 @@ int PASS2(){
 						ascii = ascii*0X100 + temp1; 
 					}
 					fprintf(fobj,"%6X",ascii);
+					//printf("%6X\n",ascii);
+					fprintf(fsource_obj,"%X\t%s\t%s\t%s\t\t%6X\n",locctr,label,mnemonic,operand,ascii);
 					count = count + strlen(operand) - 0X3;
 				}
 				else{
@@ -336,6 +359,7 @@ int PASS2(){
 					}
 					cons[k] = '\0';
 					fprintf(fobj,"%s",cons);
+					fprintf(fsource_obj,"%X\t%s\t%s\t%s\t\t%s\n",locctr,label,mnemonic,operand,cons);
 					count = count + (strlen(cons) + 0X0);
 				}
 				continue;
@@ -343,6 +367,7 @@ int PASS2(){
 			else if((strcmp(mnemonic,"WORD") == 0)){
 				temp1 = (int)strtol(operand,NULL,10);
 				fprintf(fobj,"%06X",temp1);
+				fprintf(fsource_obj,"%X\t%s\t%s\t%s\t\t%06X\n",locctr,label,mnemonic,operand,temp1);
 				count = count + 0X6;
 				continue;
 			}
