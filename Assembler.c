@@ -4,11 +4,12 @@
 #include <math.h> 
 
 int PASS1();
-//int PASS2();
+int PASS2();
+int program_length = 0X0;
 
 int main(){
 	PASS1();
-	//PASS2();
+	PASS2();
 	return 0;
 }
 
@@ -168,7 +169,9 @@ int PASS1(){
 			break;
 		}
 	}
-	printf("\nSymbol table 完成...\n");
+	printf("Symbol table 完成...\n");
+	
+	program_length = locctr - start;
 	
 	fclose(fSource);
 	fclose(fOpcode);
@@ -176,3 +179,184 @@ int PASS1(){
 	fclose(fIntrm);
 	return 1;
 }
+
+int PASS2(){
+	
+	int locctr = 0X0, start = 0X0,count = 0X0,record_len = 0X0,sa = 0X0,address = 0X0,target = 0X0,ascii = 0X0,temp1 = 0X0;
+	int ret = 0,op_status = 0,j = 0,k = 0;
+	long int aseek,bseek;
+	char label[12], mnemonic[8], operand[12],buffer[64],mnem[8],op[2],opcode[2],symbol[12],cons[8];
+	FILE *fIntrm, *fSymtab, *fOptab, *fsource_obj, *fobj;
+	
+	/*
+	*		以下進行檔案讀取 
+	*/
+	
+	fIntrm = fopen("Intermediate_File.txt","r");
+	if(fIntrm == NULL){
+		printf("Intermediate file open fail!"); 
+		return 0;
+	}
+	
+	fSymtab = fopen("symbol_table.txt","r");
+	if(fSymtab == NULL){
+		printf("Symbol table open fail!"); 
+		return 0;
+	}
+	
+	fOptab = fopen("opcode.txt","r");
+	if(fOptab == NULL){
+		printf("OP table open fail!");
+		return 0;
+	}
+	
+	fsource_obj = fopen("Source_with_obj.txt","w");
+	
+	fobj = fopen("final_object_program.txt","w");
+	
+	/*
+	*		檔案讀取完畢 
+	*/
+	
+	fscanf(fIntrm,"%X%s%s%s",&locctr,label,mnemonic,operand);
+	if(strcmp(mnemonic,"START") == 0){
+		start = (int)strtol(operand,NULL,16);
+		fprintf(fobj,"H%6s%06X%06X",label,start,program_length);
+		fprintf(fobj,"\nT%06X00",start,program_length);
+		bseek = ftell(fobj);
+		
+	}
+	fgets(buffer,64,fIntrm); // 先將空字串讀進 
+	while(!feof(fIntrm)){
+		fgets(buffer,64,fIntrm);
+		
+		ret = sscanf(buffer,"%X%s%s%s",&locctr,label,mnemonic,operand);
+		
+		/*
+		*	以下進行欄位調整 
+		*/ 
+		
+		if(ret == 2){ // RSUB
+			strcpy(mnemonic,label);	
+		}
+		
+		else if(ret == 3){ // LABEL為空 
+			strcpy(operand,mnemonic);
+			strcpy(mnemonic,label);
+		}
+		
+		/*
+		*	欄位調整完畢 
+		*/ 
+		
+		if(count >= 0X3C || strcmp(mnemonic,"RESB") == 0 || strcmp(mnemonic,"RESW") == 0 || strcmp(mnemonic,"END") == 0){
+			aseek = ftell(fobj);
+			fseek(fobj,-(aseek-bseek)-2L,1);
+			record_len = count/0X2;
+			fprintf(fobj,"%02X",record_len);
+			fseek(fobj,0L,2);
+			if(strcmp(mnemonic,"END") == 0){
+				break;
+			}
+			sa = locctr;
+			if(strcmp(mnemonic,"RESW") != 0){
+				fprintf(fobj,"\nT%06X00",sa);
+			}
+			bseek = ftell(fobj);
+			count = 0X0;
+		}
+		
+		rewind(fOptab);
+		op_status = 0;
+		
+		while(!feof(fOptab)){
+			fscanf(fOptab,"%s%s",mnem,op);
+			if(strcmp(mnemonic,mnem) == 0){
+				strcpy(opcode,op);
+				op_status = 1;
+				break;
+			}
+		}
+		
+		
+		if(op_status == 1 && operand[strlen(operand)-1] == 'X' && operand[strlen(operand)-2] ==','){
+			j = strlen(operand);
+			operand[j-2] = '\0';
+			rewind(fSymtab);
+			
+			while(!feof(fSymtab)){
+				fscanf(fSymtab,"%s%X",symbol,&address);
+				if(strcmp(operand,symbol) == 0){
+					target = address;
+					target += 0X8000;
+					break;
+				}
+			}
+			fprintf(fobj,"%2s%04X",opcode,target);
+			
+			fprintf(fsource_obj,"%X\t%s\t%s\t%s\t%2s%04X\n",locctr,label,mnemonic,operand,opcode,target);
+			count = count + 0X6;
+			continue;
+		}
+		
+		else if(op_status == 1 && strcmp(mnemonic,"RSUB") != 0){
+			rewind(fSymtab);
+			while(!feof(fSymtab)){
+				fscanf(fSymtab,"%s%X",symbol,&address);
+				if(strcmp(operand,symbol) == 0){
+					target = address;
+					break;
+				} 
+			}
+			fprintf(fobj,"%02s%04X",op,target);
+			count = count + 0X6;
+			continue;
+		}
+		
+		else if(op_status == 1 && strcmp(mnemonic,"RSUB") == 0){
+			fprintf(fobj,"%s0000",opcode);
+			count = count + 0X6;
+			continue;
+		}
+		
+		else{
+			if(strcmp(mnemonic,"BYTE") == 0){
+				if(operand[0] == 'C'){
+					for(k = 0 ; k<strlen(operand)-3 ; k++){
+						temp1 = 0X0;
+						temp1 += (int)operand[k+2];
+						ascii = ascii*0X100 + temp1; 
+					}
+					fprintf(fobj,"%6X",ascii);
+					count = count + strlen(operand) - 0X3;
+				}
+				else{
+					for(k = 0 ; k<strlen(operand) - 3 ; k++){
+						cons[k] = operand[k+2];
+					}
+					cons[k] = '\0';
+					fprintf(fobj,"%s",cons);
+					count = count + (strlen(cons) + 0X0);
+				}
+				continue;
+			}
+			else if((strcmp(mnemonic,"WORD") == 0)){
+				temp1 = (int)strtol(operand,NULL,10);
+				fprintf(fobj,"%06X",temp1);
+				count = count + 0X6;
+				continue;
+			}
+			else{
+				continue;
+			}
+		}
+	}
+	printf("\nObject Program generate!");
+	fclose(fIntrm);
+	fclose(fSymtab);
+	fclose(fOptab);
+	fclose(fobj);
+	fclose(fsource_obj);
+	return 1;
+}
+
