@@ -220,14 +220,12 @@ int PASS2(){
 	
 	fscanf(fIntrm,"%X%s%s%s",&locctr,label,mnemonic,operand);
 	
-	if(strcmp(mnemonic,"START") == 0){
+	if(strcmp(mnemonic,"START") == 0){ // 起始 
 		start = (int)strtol(operand,NULL,16);
-		fprintf(fobj,"H%s\t%06X%06X",label,start,program_length);
+		fprintf(fobj,"H%s\t%06X%06X",label,start,program_length); // 先印出 H part. 
 		fprintf(fobj,"\nT%06X00",start);
-		
-		bseek = ftell(fobj);
-		
 	}
+	
 	fgets(buffer,64,fIntrm); // 先將空字串讀進 
 	
 	while(!feof(fIntrm)){
@@ -253,36 +251,23 @@ int PASS2(){
 		*	欄位調整完畢 
 		*/ 
 		
-		if((flag == 1) ){
+		if((flag == 1) ){ // 若 flag 為 1 代表 obj 要換行了 
 			if((strcmp(mnemonic,"RESB") != 0) && (strcmp(mnemonic,"RESW") != 0) && (strcmp(mnemonic,"END") != 0)){
-				//printf("%X\n",locctr); 
 				fprintf(fobj,"\nT%06X00",locctr);
 				flag = 0;
 			}
 		} 
-		 
 			
 		if(count >= 0X36 || strcmp(mnemonic,"RESB") == 0 || strcmp(mnemonic,"RESW") == 0 || strcmp(mnemonic,"END") == 0){
-			
-			flag = 1;
-			/*aseek = ftell(fobj);
-			fseek(fobj,-(aseek-bseek)-2L,1);
-			record_len = count/0X2;
-			fprintf(fobj,"%02X",record_len);
-			fseek(fobj,0L,2);*/
-			
+			flag = 1; // 若符合換行條件 
 			if(strcmp(mnemonic,"END") == 0){
 				break;
 			}
-			
-			bseek = ftell(fobj);
 			count = 0X0;
 		}
-		
 		rewind(fOptab);
 		op_status = 0;
-		
-		while(!feof(fOptab)){
+		while(!feof(fOptab)){ // 搜尋OP table 
 			fscanf(fOptab,"%s%s",mnem,op);
 			if(strcmp(mnemonic,mnem) == 0){
 				strcpy(opcode,op);
@@ -290,13 +275,10 @@ int PASS2(){
 				break;
 			}
 		}
-		
-		
 		if(op_status == 1 && operand[strlen(operand)-1] == 'X' && operand[strlen(operand)-2] ==','){
 			j = strlen(operand);
 			operand[j-2] = '\0';
 			rewind(fSymtab);
-			
 			while(!feof(fSymtab)){
 				fscanf(fSymtab,"%s%X",symbol,&address);
 				if(strcmp(operand,symbol) == 0){
@@ -310,7 +292,6 @@ int PASS2(){
 			count = count + 0X6;
 			continue;
 		}
-		
 		else if(op_status == 1 && strcmp(mnemonic,"RSUB") != 0){
 			rewind(fSymtab);
 			while(!feof(fSymtab)){
@@ -327,8 +308,6 @@ int PASS2(){
 			else{
 				fprintf(fsource_obj,"%X\t\t%s\t%s\t\t%2s%04X\n",locctr,mnemonic,operand,opcode,target);
 			}
-			
-			//printf("%2s%04X\n",opcode,target);
 			count = count + 0X6;
 			continue;
 		}
@@ -339,7 +318,6 @@ int PASS2(){
 			count = count + 0X6;
 			continue;
 		}
-		
 		else{
 			if(strcmp(mnemonic,"BYTE") == 0){
 				if(operand[0] == 'C'){
@@ -349,7 +327,6 @@ int PASS2(){
 						ascii = ascii*0X100 + temp1; 
 					}
 					fprintf(fobj,"%6X",ascii);
-					//printf("%6X\n",ascii);
 					fprintf(fsource_obj,"%X\t%s\t%s\t%s\t\t%6X\n",locctr,label,mnemonic,operand,ascii);
 					count = count + strlen(operand) - 0X3;
 				}
@@ -377,9 +354,12 @@ int PASS2(){
 		}
 	}
 	fprintf(fobj,"\nE%06X",start);
-	
 	rewind(fobj);
 	fflush(fobj);
+	
+	/*
+	*		以下針對 obj 中的 record length 重新進行調整 
+	*/
 	
 	fobj = fopen("final_object_program.txt","r+");
 	fgets(obj,200,fobj);
@@ -394,7 +374,6 @@ int PASS2(){
 			break;
 		}
 		record_len = ((strlen(obj)-9)/2 + 0X0); 
-		printf("%X\n",record_len);
 		aseek = ftell(fobj);
 		fseek(fobj,-record_len*2-4,1);
 		fprintf(fobj,"%02X",record_len);
