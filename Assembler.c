@@ -185,7 +185,7 @@ int PASS2(){
 	int locctr = 0X0, start = 0X0,count = 0X0,record_len = 0X0,sa = 0X0,address = 0X0,target = 0X0,ascii = 0X0,temp1 = 0X0;
 	int ret = 0,op_status = 0,j = 0,k = 0,flag = 0;;
 	long int aseek,bseek;
-	char label[12], mnemonic[8], operand[12],buffer[64],mnem[8],op[2],opcode[2],symbol[12],cons[8];
+	char label[12], mnemonic[8], operand[12],buffer[64],mnem[8],op[2],opcode[2],symbol[12],cons[8],obj[200];
 	FILE *fIntrm, *fSymtab, *fOptab, *fsource_obj, *fobj;
 	
 	/*
@@ -222,7 +222,7 @@ int PASS2(){
 	
 	if(strcmp(mnemonic,"START") == 0){
 		start = (int)strtol(operand,NULL,16);
-		fprintf(fobj,"H%6s%06X%06X",label,start,program_length);
+		fprintf(fobj,"H%s\t%06X%06X",label,start,program_length);
 		fprintf(fobj,"\nT%06X00",start);
 		
 		bseek = ftell(fobj);
@@ -376,12 +376,37 @@ int PASS2(){
 			}
 		}
 	}
+	fprintf(fobj,"\nE%06X",start);
+	
+	rewind(fobj);
+	fflush(fobj);
+	
+	fobj = fopen("final_object_program.txt","r+");
+	fgets(obj,200,fobj);
+	while(!feof(fobj)){
+		fgets(obj,200,fobj);
+		for(int i = 0 ; i<200 ; i++){
+			if(obj[i] == '\n'){
+				obj[i] = '\0';
+			}
+		}
+		if(obj[0] == 'E'){
+			break;
+		}
+		record_len = ((strlen(obj)-9)/2 + 0X0); 
+		printf("%X\n",record_len);
+		aseek = ftell(fobj);
+		fseek(fobj,-record_len*2-4,1);
+		fprintf(fobj,"%02X",record_len);
+		fseek(fobj,aseek,0);
+	}
+	
+	
 	printf("\nObject Program generate!");
+	fclose(fobj);
 	fclose(fIntrm);
 	fclose(fSymtab);
 	fclose(fOptab);
-	fclose(fobj);
 	fclose(fsource_obj);
 	return 1;
 }
-
